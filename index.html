@@ -1830,7 +1830,6 @@ const _openForgottenOriginal = openForgottenModal;
 openForgottenModal = function() {
   _openForgottenOriginal();
 
-  if (activeModule !== 'silvicultura') return;
 
   const src = EQUIPMENTS[activeEq].items;
   const tiposExecutados = new Set(src.filter(r => !isAberto(r)).map(r => r.tipo));
