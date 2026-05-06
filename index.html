@@ -1033,8 +1033,13 @@ function toggleTheme() {
 function parseDate(raw) {
   if (!raw) return '';
   var s = String(raw).trim();
-  var ptBR = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-  if (ptBR) return ptBR[3] + '-' + ptBR[2] + '-' + ptBR[1];
+  var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) {
+    var a = parseInt(m[1], 10), b = parseInt(m[2], 10), y = m[3];
+    if (a > 12) return y + '-' + String(b).padStart(2,'0') + '-' + String(a).padStart(2,'0');
+    if (b > 12) return y + '-' + String(a).padStart(2,'0') + '-' + String(b).padStart(2,'0');
+    return y + '-' + String(a).padStart(2,'0') + '-' + String(b).padStart(2,'0');
+  }
   return s.substring(0, 10);
 }
 
