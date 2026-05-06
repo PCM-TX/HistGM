@@ -1033,6 +1033,13 @@ function toggleTheme() {
 function parseDate(raw) {
   if (!raw) return '';
   var s = String(raw).trim();
+
+  // Data serial do Excel (ex: 45488)
+  if (/^\d{4,5}$/.test(s)) {
+    var d = new Date((parseInt(s, 10) - 25569) * 86400000);
+    return d.toISOString().substring(0, 10);
+  }
+
   var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (m) {
     var a = parseInt(m[1], 10), b = parseInt(m[2], 10), y = m[3];
@@ -1040,6 +1047,7 @@ function parseDate(raw) {
     if (b > 12) return y + '-' + String(a).padStart(2,'0') + '-' + String(b).padStart(2,'0');
     return y + '-' + String(a).padStart(2,'0') + '-' + String(b).padStart(2,'0');
   }
+
   return s.substring(0, 10);
 }
 
