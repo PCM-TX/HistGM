@@ -884,7 +884,7 @@ const MODULES = {
     color: 'var(--accent)',
   },
   silvicultura: {
-    url:   'https://raw.githubusercontent.com/PCM-TX/HistGM/refs/heads/main/dados_Silv.json', // substitua pela URL do JSON de silvicultura quando disponível
+    url:   'https://raw.githubusercontent.com/PCM-TX/HistGM/refs/heads/main/dados_Silv.json',
     label: 'Silvicultura',
     color: 'var(--green)',
   },
@@ -904,7 +904,7 @@ function enterModule(mod) {
   if (lbl) lbl.innerHTML = 'GM <em>/</em> ' + m.label;
 
   if (mod === 'silvicultura') {
-    loadData();
+    renderSilvicultura();
   } else {
     loadData();
   }
@@ -1029,6 +1029,15 @@ function toggleTheme() {
   }
 })();
 
+// Suporta: YYYY-MM-DD, DD/MM/YYYY, DD/MM/YYYY HH:MM:SS (SharePoint)
+function parseDate(raw) {
+  if (!raw) return '';
+  var s = String(raw).trim();
+  var ptBR = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (ptBR) return ptBR[3] + '-' + ptBR[2] + '-' + ptBR[1];
+  return s.substring(0, 10);
+}
+
 function normalize(r) {
   return {
     ordem:    String(r[COL.ordem]    || r.ORDEM            || ''),
@@ -1038,7 +1047,7 @@ function normalize(r) {
     textoSap: String(r[COL.textoSap] || r.Texto_Os_Sap     || ''),
     tipo:     String(r[COL.textoAbv] || r.Texto_Abv        || ''),
     hor:      Number(r[COL.horimetro]|| r.Horimetro_Execucao|| 0),
-    data:     String(r[COL.data]     || r.Data_Execucao    || '').substring(0,10),
+    data:     parseDate(String(r[COL.data] || r.Data_Execucao || '')),
     status:   String(r[COL.status]   || r.Status_Sistema   || ''),
   };
 }
@@ -1825,32 +1834,6 @@ function closeForgottenModal() {
 }
 
 // Navegação iniciada pela home screen
-// ── Silvicultura: GMs nunca realizadas no modal de esquecidas ──
-const _openForgottenOriginal = openForgottenModal;
-openForgottenModal = function() {
-  _openForgottenOriginal();
-
-
-  const src = EQUIPMENTS[activeEq].items;
-  const tiposExecutados = new Set(src.filter(r => !isAberto(r)).map(r => r.tipo));
-  const nuncaFeitas = GM_POSSIVEIS.filter(gm => !tiposExecutados.has(gm));
-
-  if (nuncaFeitas.length === 0) return;
-
-  const secao = '<div style="margin-top:16px;padding:12px 16px;background:var(--paper2);border-radius:10px;border:1px solid var(--border)">'
-    + '<div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin-bottom:10px">⚠️ Nunca realizadas neste equipamento</div>'
-    + nuncaFeitas.map(gm =>
-        '<div class="forgotten-item" style="--fi-color:var(--accent);--fi-bg:var(--accent-bg);--fi-br:var(--accent-br)">'
-        + '<span class="forgotten-rank">—</span>'
-        + '<div class="forgotten-info"><div class="forgotten-name">' + gm + '</div>'
-        + '<div class="forgotten-last">Sem nenhum registro de execução</div></div>'
-        + '<span class="forgotten-badge" style="--fi-color:var(--accent);--fi-bg:var(--accent-bg);--fi-br:var(--accent-br)">Nunca · Crítico</span>'
-        + '</div>'
-      ).join('')
-    + '</div>';
-
-  document.getElementById('forgotten-body').innerHTML += secao;
-};
 </script>
 <!-- Chart Expand Modal -->
 <div class="chart-modal-overlay" id="chart-modal-overlay" onclick="if(event.target===this)closeChartModal()">
