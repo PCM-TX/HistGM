@@ -990,9 +990,9 @@ body {
 }
 .export-btn:hover { color: var(--text); border-color: var(--border2); }
 .export-dropdown {
-  display: none; position: absolute; top: calc(100% + 6px); right: 0;
+  display: none; position: fixed; top: 0; left: 0;
   background: var(--paper); border: 1px solid var(--border); border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0,0,0,.15); z-index: 500; min-width: 160px; overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,.15); z-index: 9300; min-width: 200px; overflow: hidden;
 }
 .export-dropdown.open { display: block; animation: fadeSlideIn .15s ease; }
 .export-option {
@@ -1158,6 +1158,8 @@ body {
       <span id="sync-label">Demo</span>
     </div>
     <span id="clock"></span>
+    <button class="btn-sm" onclick="openOverview()" title="Overview Geral" style="display:flex;align-items:center;gap:5px;">📊 Overview</button>
+    <button class="btn-sm" onclick="openCompare()" title="Comparar Equipamentos" style="display:flex;align-items:center;gap:5px;">⚖️ Comparar</button>
     <button class="btn-sm" onclick="loadData()">↻ Atualizar</button>
     <button class="theme-btn" onclick="toggleTheme()" title="Tema claro/escuro">
       <div class="theme-knob" id="theme-knob">🌙</div>
@@ -1412,15 +1414,37 @@ async function loadData() {
   selectEquip(0);
 }
 
+function getFrente(eq) {
+  // Tenta pegar frente do primeiro item; fallback para prefixo do nome
+  const f = eq.items[0]?.frente;
+  if (f && f !== '—' && f.trim()) return f.trim();
+  // Fallback: prefixo do nome (ex: F-FWX de F-FWX-0001)
+  const m = eq.name.match(/^([A-Z]-[A-Z]+)/);
+  return m ? m[1] : eq.name.substring(0, 5);
+}
+
 function renderSidebar() {
   const sb = document.getElementById('sidebar');
   if (!document.getElementById('sidebar-filter')) {
+    // Coletar frentes únicas
+    const frentesSet = new Set();
+    EQUIPMENTS.forEach(eq => frentesSet.add(getFrente(eq)));
+    const frentes = [...frentesSet].sort();
+    const frenteOpts = frentes.map(f => `<option value="${f}">${f}</option>`).join('');
+
     sb.innerHTML = `
       <div class="sidebar-label">Equipamentos</div>
       <div class="sidebar-search" id="sidebar-search-wrap">
         <span class="sidebar-search-icon"></span>
         <input id="sidebar-filter" type="text" placeholder="Buscar equipamento..." autocomplete="off" spellcheck="false">
         <button class="sidebar-search-clear" id="sidebar-clear" title="Limpar busca">×</button>
+      </div>
+      <div style="padding:0 0 8px 0;">
+        <label style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);display:block;margin-bottom:5px;">Frente</label>
+        <select id="sidebar-frente-filter" style="width:100%;background:var(--bg);border:1.5px solid var(--border);color:var(--text);border-radius:10px;padding:7px 10px;font-family:'Outfit',sans-serif;font-size:12px;outline:none;transition:border-color .2s;">
+          <option value="">Todas as frentes</option>
+          ${frenteOpts}
+        </select>
       </div>
       <div class="sidebar-sep"></div>
       <div id="sidebar-list"></div>
@@ -1431,20 +1455,26 @@ function renderSidebar() {
     const input = document.getElementById('sidebar-filter');
     const wrap  = document.getElementById('sidebar-search-wrap');
     const clear = document.getElementById('sidebar-clear');
+    const frenteSelect = document.getElementById('sidebar-frente-filter');
     input.addEventListener('input', function() { wrap.classList.toggle('has-value', this.value.length>0); renderSidebarList(this.value); });
     clear.addEventListener('click', function() { input.value=''; wrap.classList.remove('has-value'); input.focus(); renderSidebarList(''); });
+    frenteSelect.addEventListener('change', function() { renderSidebarList(input.value); });
+    frenteSelect.addEventListener('focus', function() { this.style.borderColor='var(--accent)'; });
+    frenteSelect.addEventListener('blur', function() { this.style.borderColor='var(--border)'; });
   }
   renderSidebarList('');
 }
 
 function renderSidebarList(filterText) {
   const query = (filterText||'').toLowerCase().trim();
+  const frenteFilter = (document.getElementById('sidebar-frente-filter')?.value || '').trim();
   const list  = document.getElementById('sidebar-list');
   if (!list) return;
   list.innerHTML = '';
   let any = false;
   EQUIPMENTS.forEach((eq, i) => {
     if (query && !eq.name.toLowerCase().includes(query)) return;
+    if (frenteFilter && getFrente(eq) !== frenteFilter) return;
     any = true;
     const btn = document.createElement('button');
     btn.className = 'equip-btn' + (i===activeEq?' active':'');
@@ -2193,11 +2223,25 @@ function openForgottenModal() {
   const criticas = lista.filter(d => d.dias >= 730).length;
   const atencao  = lista.filter(d => d.dias >= 365 && d.dias < 730).length;
 
-  document.getElementById('forgotten-body').innerHTML = rows || '<div style="text-align:center;padding:40px;color:var(--sub)">Nenhuma GM com histórico de execução encerrada.</div>';
+  // GMs nunca realizadas (estão em GM_POSSIVEIS mas sem nenhum registro encerrado)
+  const tiposComRegistro = new Set(Object.keys(ultimaPorTipo));
+  const nuncaRealizadas = GM_POSSIVEIS.filter(gm => !tiposComRegistro.has(gm));
+  let nuncaHtml = '';
+  if (nuncaRealizadas.length > 0) {
+    nuncaHtml = `<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;">🚫 GMs nunca realizadas neste equipamento (${nuncaRealizadas.length})</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${nuncaRealizadas.map(gm => `<span style="background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent-br);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:600;">${gm}</span>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('forgotten-body').innerHTML = (rows || '<div style="text-align:center;padding:40px;color:var(--sub)">Nenhuma GM com histórico de execução encerrada.</div>') + nuncaHtml;
   document.getElementById('forgotten-footer').innerHTML =
     '<span style="color:var(--accent);font-weight:700">' + criticas + ' crítica' + (criticas!==1?'s':'') + '</span> · ' +
     '<span style="color:var(--warn);font-weight:700">' + atencao + ' em atenção</span> · ' +
-    lista.length + ' GM' + (lista.length!==1?'s':'') + ' com histórico';
+    lista.length + ' GM' + (lista.length!==1?'s':'') + ' com histórico' +
+    (nuncaRealizadas.length > 0 ? ' · <span style="color:var(--accent);font-weight:700">' + nuncaRealizadas.length + ' nunca realizadas</span>' : '');
   document.getElementById('forgotten-equip-name').textContent = EQUIPMENTS[activeEq].name;
   document.getElementById('forgotten-overlay').classList.add('open');
 }
@@ -2337,8 +2381,18 @@ document.addEventListener('DOMContentLoaded', () => {
 // ══════════════════════════════════════
 function toggleExportDropdown(e) {
   e.stopPropagation();
-  const dd = document.getElementById('export-dropdown');
-  if (dd) dd.classList.toggle('open');
+  const dd  = document.getElementById('export-dropdown');
+  const btn = e.currentTarget;
+  if (!dd) return;
+  if (dd.classList.contains('open')) {
+    dd.classList.remove('open');
+    return;
+  }
+  // Posiciona via fixed com base no botão
+  const rect = btn.getBoundingClientRect();
+  dd.style.top  = (rect.bottom + 6) + 'px';
+  dd.style.left = Math.max(4, rect.right - 200) + 'px';
+  dd.classList.add('open');
 }
 function closeExportDropdown() {
   const dd = document.getElementById('export-dropdown');
@@ -2368,25 +2422,109 @@ function exportPrint() {
   const eq   = EQUIPMENTS[activeEq];
   const rows = filtered.length ? filtered : eq.items;
   const sorted = [...rows].sort((a,b) => b.data.localeCompare(a.data));
+  const src = eq.items;
+
+  // Métricas gerais
+  const totalGMs     = src.length;
+  const encerradas   = src.filter(r => !isAberto(r)).length;
+  const abertas      = src.filter(r => isAberto(r)).length;
+  const gmnps        = src.filter(r => r.textoSap.toUpperCase().includes('GMNP')).length;
+  const taxaConc     = totalGMs > 0 ? Math.round((encerradas / totalGMs) * 100) : 0;
+  const ultima       = [...src].sort((a,b) => b.data.localeCompare(a.data))[0];
+  const contagem     = {};
+  src.forEach(r => { contagem[r.tipo] = (contagem[r.tipo]||0)+1; });
+  const rankGMs      = Object.entries(contagem).sort((a,b) => b[1]-a[1]);
+
+  // GMs nunca realizadas
+  const tiposRealizados = new Set(src.filter(r => !isAberto(r)).map(r => r.tipo));
+  const nuncaRealizadas = GM_POSSIVEIS.filter(gm => !tiposRealizados.has(gm));
+
+  // MTBF (tempo médio entre falhas/manutenções pelo horímetro)
+  const sortedH = [...src.filter(r => !isAberto(r))].sort((a,b) => a.hor - b.hor);
+  let mtbf = null;
+  if (sortedH.length >= 2) {
+    const diffs = [];
+    for (let i=1;i<sortedH.length;i++) diffs.push(sortedH[i].hor - sortedH[i-1].hor);
+    mtbf = Math.round(diffs.reduce((a,b)=>a+b,0)/diffs.length);
+  }
+
+  // GMs atrasadas (última execução por tipo)
+  const ultimaPorTipo = {};
+  src.filter(r => !isAberto(r)).forEach(r => {
+    if (!ultimaPorTipo[r.tipo] || r.data > ultimaPorTipo[r.tipo]) ultimaPorTipo[r.tipo] = r.data;
+  });
+  const atrasadas = Object.entries(ultimaPorTipo)
+    .map(([tipo, data]) => ({ tipo, data, dias: Math.round((new Date() - new Date(data+'T12:00:00'))/86400000) }))
+    .sort((a,b) => b.dias - a.dias);
+
   const tableRows = sorted.map(r => `<tr>
     <td>${r.ordem}</td><td>${r.tipo}</td><td>${r.data}</td>
     <td>${r.hor.toLocaleString('pt-BR')} h</td><td>${r.status}</td>
-    <td>${r.frota}</td><td>${r.frente||'—'}</td><td>${r.textoSap}</td>
+    <td>${r.frota}</td><td>${r.frente||'—'}</td><td style="max-width:300px;word-wrap:break-word">${r.textoSap}</td>
   </tr>`).join('');
+
+  const rankRows = rankGMs.slice(0,10).map(([tipo, ct]) =>
+    `<tr><td>${tipo}</td><td>${ct}</td><td>${Math.round(ct/totalGMs*100)}%</td></tr>`).join('');
+
+  const atrasadasRows = atrasadas.slice(0,10).map(item => {
+    const status = item.dias >= 730 ? '🔴 Crítico' : item.dias >= 365 ? '🟡 Atenção' : '🟢 Regular';
+    const anos = Math.floor(item.dias/365); const meses = Math.floor(item.dias/30);
+    const tempo = anos >= 1 ? anos + ' ano(s)' : meses >= 1 ? meses + ' mês(es)' : item.dias + ' dias';
+    return `<tr><td>${item.tipo}</td><td>${item.data}</td><td>${tempo}</td><td>${status}</td></tr>`;
+  }).join('');
+
+  const nuncaRows = nuncaRealizadas.map(gm => `<tr><td>${gm}</td><td style="color:#cc4400;font-weight:700">Nunca realizada</td></tr>`).join('');
+
   const printWin = window.open('', '_blank');
   printWin.document.write(`<!DOCTYPE html><html lang="pt-BR"><head>
     <meta charset="UTF-8"><title>Relatório GM — ${eq.name}</title>
     <style>
-      body{font-family:Arial,sans-serif;font-size:11px;margin:20px;color:#111}
-      h1{font-size:16px;margin-bottom:4px} .sub{color:#666;font-size:11px;margin-bottom:16px}
-      table{border-collapse:collapse;width:100%}
-      th,td{border:1px solid #ccc;padding:5px 8px;text-align:left}
-      th{background:#f0f0f0;font-weight:700;font-size:10px;text-transform:uppercase}
+      body{font-family:Arial,sans-serif;font-size:11px;margin:24px;color:#111}
+      h1{font-size:18px;margin-bottom:4px;color:#c05c20}
+      h2{font-size:13px;margin:20px 0 6px;color:#333;border-bottom:2px solid #e0ddd6;padding-bottom:4px}
+      .sub{color:#666;font-size:11px;margin-bottom:18px}
+      .kpi-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+      .kpi{background:#f7f6f2;border:1px solid #e0ddd6;border-radius:8px;padding:10px 14px;min-width:110px}
+      .kpi-label{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#78746a;margin-bottom:3px}
+      .kpi-value{font-size:18px;font-weight:700;color:#1a1916}
+      .kpi-value.accent{color:#c05c20}
+      table{border-collapse:collapse;width:100%;margin-bottom:8px}
+      th,td{border:1px solid #ccc;padding:5px 8px;text-align:left;font-size:10px}
+      th{background:#f0f0f0;font-weight:700;font-size:9px;text-transform:uppercase;color:#555}
       tr:nth-child(even){background:#f9f9f9}
+      .badge-red{color:#c05c20;font-weight:700}
+      .badge-yellow{color:#8a6020;font-weight:700}
+      .badge-green{color:#256b40;font-weight:700}
+      .never-badge{background:#fdf0e8;color:#c05c20;border:1px solid #f5c9a8;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;display:inline-block;margin:2px}
       @media print{body{margin:10px}}
     </style></head><body>
-    <h1>Grandes Manutenções — ${eq.name}</h1>
-    <div class="sub">Exportado em ${new Date().toLocaleString('pt-BR')} · ${sorted.length} registro${sorted.length!==1?'s':''}</div>
+    <h1>📋 Relatório de Grandes Manutenções — ${eq.name}</h1>
+    <div class="sub">Gerado em ${new Date().toLocaleString('pt-BR')} · ${sorted.length} registro${sorted.length!==1?'s':''} exibidos (total: ${totalGMs})</div>
+
+    <h2>📊 Resumo Executivo</h2>
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-label">Total de GMs</div><div class="kpi-value accent">${totalGMs}</div></div>
+      <div class="kpi"><div class="kpi-label">Encerradas</div><div class="kpi-value" style="color:#256b40">${encerradas}</div></div>
+      <div class="kpi"><div class="kpi-label">Em Aberto</div><div class="kpi-value" style="color:#8a6020">${abertas}</div></div>
+      <div class="kpi"><div class="kpi-label">GMNPs</div><div class="kpi-value accent">${gmnps}</div></div>
+      <div class="kpi"><div class="kpi-label">Taxa de Conclusão</div><div class="kpi-value">${taxaConc}%</div></div>
+      ${mtbf !== null ? `<div class="kpi"><div class="kpi-label">MTBF (horímetro)</div><div class="kpi-value">${mtbf.toLocaleString('pt-BR')} h</div></div>` : ''}
+      ${ultima ? `<div class="kpi"><div class="kpi-label">Último Horímetro</div><div class="kpi-value">${ultima.hor.toLocaleString('pt-BR')} h</div></div>` : ''}
+    </div>
+
+    ${nuncaRealizadas.length > 0 ? `
+    <h2>🚫 GMs Nunca Realizadas (${nuncaRealizadas.length})</h2>
+    <div style="margin-bottom:14px">${nuncaRealizadas.map(gm => `<span class="never-badge">${gm}</span>`).join('')}</div>
+    <table><thead><tr><th>Tipo de GM</th><th>Situação</th></tr></thead><tbody>${nuncaRows}</tbody></table>` : ''}
+
+    ${atrasadasRows ? `
+    <h2>⏰ GMs com Maior Tempo sem Realização</h2>
+    <table><thead><tr><th>Tipo de GM</th><th>Última Execução</th><th>Tempo sem Realizar</th><th>Status</th></tr></thead><tbody>${atrasadasRows}</tbody></table>` : ''}
+
+    <h2>📈 Ranking de GMs por Frequência</h2>
+    <table><thead><tr><th>Tipo de GM</th><th>Qtd. Realizações</th><th>% do Total</th></tr></thead><tbody>${rankRows}</tbody></table>
+
+    <h2>📝 Histórico Completo de Registros</h2>
     <table><thead><tr>
       <th>OS</th><th>Tipo GM</th><th>Data</th><th>Horímetro</th>
       <th>Status</th><th>Frota</th><th>Frente</th><th>Descrição</th>
@@ -2594,7 +2732,148 @@ function renderOverviewBody() {
     <div>
       <div class="overview-section-title">🛡️ Equipamentos com mais GMNPs</div>
       ${renderCards(maisGMNPs, d => d.gmnps, d => d.gmnps + ' GMNP' + (d.gmnps!==1?'s':''), 'var(--green)')}
+    </div>
+    <div>
+      <div class="overview-section-title">🏆 Top 5 Máquinas — Mais Intervenções nos Últimos 12 Meses</div>
+      ${renderTop5Intervencoes(equipsData)}
+    </div>
+    <div>
+      <div class="overview-section-title">⏱️ MTBF — Tempo Médio Entre Falhas (por Horímetro)</div>
+      ${renderMTBF(equipsData)}
+    </div>
+    <div>
+      <div class="overview-section-title">🔁 Falhas Recorrentes — Mesma GM Repetida com Alta Frequência</div>
+      ${renderRecorrentes(equipsData)}
+    </div>
+    <div>
+      <div class="overview-section-title">🔀 Comparativo Automático Entre Máquinas da Mesma Frente</div>
+      ${renderComparativoFrentes(equipsData)}
     </div>`;
+}
+
+function renderTop5Intervencoes(equipsData) {
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - 1);
+  const cutoffStr = cutoff.toISOString().substring(0,10);
+
+  const ranked = equipsData.map(d => {
+    const cnt12m = d.eq.items.filter(r => r.data >= cutoffStr).length;
+    return { ...d, cnt12m };
+  }).sort((a,b) => b.cnt12m - a.cnt12m).slice(0,5);
+
+  if (!ranked.length || ranked[0].cnt12m === 0) return '<div style="color:var(--sub);font-size:12px;padding:12px 0">Sem dados suficientes</div>';
+  return `<div class="overview-cards">${ranked.map((d,i) => {
+    const pct = ranked[0].cnt12m > 0 ? Math.round(d.cnt12m/ranked[0].cnt12m*100) : 0;
+    return `<div class="overview-card" style="--ov-color:var(--accent);cursor:pointer" onclick="closeOverview();selectEquip(${d.idx})">
+      <div class="overview-card-rank">#${i+1}</div>
+      <div class="overview-card-name">${d.eq.name}</div>
+      <div class="overview-card-frente">Frente: ${d.frente}</div>
+      <div class="overview-card-metric">${d.cnt12m} GM${d.cnt12m!==1?'s':''}</div>
+      <div class="overview-card-metric-sub">últimos 12 meses</div>
+      <div style="margin-top:6px;background:var(--border);border-radius:4px;height:4px;overflow:hidden"><div style="height:4px;border-radius:4px;background:var(--accent);width:${pct}%"></div></div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function renderMTBF(equipsData) {
+  const ranked = equipsData.map(d => {
+    const sortedH = [...d.eq.items.filter(r => !isAberto(r))].sort((a,b) => a.hor - b.hor);
+    let mtbf = null;
+    if (sortedH.length >= 2) {
+      const diffs = [];
+      for (let i=1;i<sortedH.length;i++) diffs.push(sortedH[i].hor - sortedH[i-1].hor);
+      mtbf = Math.round(diffs.reduce((a,b)=>a+b,0)/diffs.length);
+    }
+    return { ...d, mtbf };
+  }).filter(d => d.mtbf !== null).sort((a,b) => b.mtbf - a.mtbf);
+
+  if (!ranked.length) return '<div style="color:var(--sub);font-size:12px;padding:12px 0">Dados insuficientes para calcular MTBF (necessário pelo menos 2 GMs encerradas).</div>';
+  return `<div class="overview-cards">${ranked.slice(0,6).map((d,i) => {
+    const colorVar = d.mtbf >= 1500 ? 'var(--green)' : d.mtbf >= 800 ? 'var(--blue)' : 'var(--warn)';
+    const label = d.mtbf >= 1500 ? 'Excelente' : d.mtbf >= 800 ? 'Regular' : 'Atenção';
+    return `<div class="overview-card" style="--ov-color:${colorVar};cursor:pointer" onclick="closeOverview();selectEquip(${d.idx})">
+      <div class="overview-card-rank">#${i+1}</div>
+      <div class="overview-card-name">${d.eq.name}</div>
+      <div class="overview-card-frente">Frente: ${d.frente}</div>
+      <div class="overview-card-metric">${d.mtbf.toLocaleString('pt-BR')} h</div>
+      <div class="overview-card-metric-sub" style="color:${colorVar}">${label}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function renderRecorrentes(equipsData) {
+  // Detectar GMs repetidas com alta frequência (>= 3x) por equipamento
+  const recorrentes = [];
+  equipsData.forEach(d => {
+    const contagem = {};
+    d.eq.items.forEach(r => { contagem[r.tipo] = (contagem[r.tipo]||0)+1; });
+    Object.entries(contagem).forEach(([tipo, ct]) => {
+      if (ct >= 3) recorrentes.push({ ...d, tipo, ct });
+    });
+  });
+  recorrentes.sort((a,b) => b.ct - a.ct);
+
+  if (!recorrentes.length) return '<div style="color:var(--sub);font-size:12px;padding:12px 0">Nenhuma falha recorrente detectada (mínimo 3 ocorrências do mesmo tipo).</div>';
+  return `<div class="overview-list">${recorrentes.slice(0,8).map(d => {
+    const u = { color:'var(--warn)', bg:'var(--warn-bg)', br:'var(--warn-br)' };
+    return `<div class="overview-critical-item" style="--ov-color:${u.color};--ov-bg:${u.bg};--ov-br:${u.br};cursor:pointer" onclick="closeOverview();selectEquip(${d.idx})">
+      <span style="font-size:18px">🔁</span>
+      <div style="flex:1;min-width:0">
+        <div class="overview-critical-name">${d.eq.name}</div>
+        <div class="overview-critical-sub">${d.tipo} · Frente: ${d.frente}</div>
+      </div>
+      <div class="overview-critical-badge" style="color:${u.color};background:${u.bg};border-color:${u.br}">${d.ct}x repetida</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function renderComparativoFrentes(equipsData) {
+  // Agrupar por frente
+  const byFrente = {};
+  equipsData.forEach(d => {
+    const fr = d.frente || '—';
+    if (!byFrente[fr]) byFrente[fr] = [];
+    byFrente[fr].push(d);
+  });
+  // Só frentes com 2+ equipamentos
+  const frentesMultiplas = Object.entries(byFrente).filter(([,list]) => list.length >= 2);
+
+  if (!frentesMultiplas.length) return '<div style="color:var(--sub);font-size:12px;padding:12px 0">Sem frentes com múltiplas máquinas para comparar.</div>';
+
+  const insights = [];
+  frentesMultiplas.forEach(([frente, list]) => {
+    const avgTotal = list.reduce((s,d) => s+d.total, 0) / list.length;
+    const avgGmnps = list.reduce((s,d) => s+d.gmnps, 0) / list.length;
+    list.forEach(d => {
+      if (avgTotal > 0 && d.total > avgTotal * 1.5) {
+        const pct = Math.round((d.total/avgTotal - 1)*100);
+        insights.push({ eq: d, frente, tipo: 'GMs totais', pct, msg: `${d.eq.name} tem ${pct}% mais GMs que a média da frente (${d.total} vs média ${Math.round(avgTotal)})`, color:'var(--accent)', bg:'var(--accent-bg)', br:'var(--accent-br)' });
+      }
+      if (avgGmnps > 0 && d.gmnps > avgGmnps * 1.5) {
+        const pct = Math.round((d.gmnps/avgGmnps - 1)*100);
+        insights.push({ eq: d, frente, tipo: 'GMNPs', pct, msg: `${d.eq.name} tem ${pct}% mais GMNPs que a média da frente (${d.gmnps} vs média ${Math.round(avgGmnps)})`, color:'var(--green)', bg:'var(--green-bg)', br:'var(--green-br)' });
+      }
+      if (d.diasSemMnt < 9999) {
+        const avgDias = list.filter(x => x.diasSemMnt < 9999).reduce((s,x) => s+x.diasSemMnt, 0) / list.filter(x => x.diasSemMnt < 9999).length;
+        if (avgDias > 0 && d.diasSemMnt > avgDias * 1.5) {
+          const pct = Math.round((d.diasSemMnt/avgDias - 1)*100);
+          insights.push({ eq: d, frente, tipo: 'Dias sem manutenção', pct, msg: `${d.eq.name} está há ${pct}% mais tempo sem manutenção que a média da frente`, color:'var(--warn)', bg:'var(--warn-bg)', br:'var(--warn-br)' });
+        }
+      }
+    });
+  });
+
+  if (!insights.length) return '<div style="color:var(--sub);font-size:12px;padding:12px 0">✅ Nenhuma anomalia detectada nas frentes. As máquinas estão com desempenho equilibrado.</div>';
+
+  return `<div class="overview-list">${insights.slice(0,8).map(ins => `
+    <div class="overview-critical-item" style="--ov-color:${ins.color};--ov-bg:${ins.bg};--ov-br:${ins.br};cursor:pointer" onclick="closeOverview();selectEquip(${ins.eq.idx})">
+      <span style="font-size:18px">💡</span>
+      <div style="flex:1;min-width:0">
+        <div class="overview-critical-name" style="font-size:12px">${ins.msg}</div>
+        <div class="overview-critical-sub">Frente: ${ins.frente} · Indicador: ${ins.tipo}</div>
+      </div>
+      <div class="overview-critical-badge" style="color:${ins.color};background:${ins.bg};border-color:${ins.br}">+${ins.pct}% acima</div>
+    </div>`).join('')}</div>`;
 }
 
 // ══════════════════════════════════════
