@@ -1297,6 +1297,7 @@ const COL = {
   ordem:'ORDEM', equip:'equipamento', frota:'frota', simul:'codigo_simulador',
   textoSap:'Texto_Os_Sap', textoAbv:'Texto_Abv', horimetro:'Horimetro_Execucao',
   data:'Data_Execucao', status:'Status_Sistema',
+  supervisor:'supervisor', frente:'frente', rf:'rf', tecnico:'tecnico',
 };
 
 const DEMO_FLAT = [
@@ -1392,18 +1393,22 @@ function parseDate(raw) {
 
 function normalize(r) {
   return {
-    ordem:    String(r[COL.ordem]    || r.ORDEM            || ''),
-    equip:    String(r[COL.equip]    || r.equipamento      || ''),
-    frota:    String(r[COL.frota]    || r.frota            || ''),
-    simul:    String(r[COL.simul]    || r.codigo_simulador || ''),
-    textoSap: String(r[COL.textoSap] || r.Texto_Os_Sap     || ''),
-    tipo:     String(r[COL.textoAbv] || r.Texto_Abv        || ''),
-    hor:      Number(r[COL.horimetro]|| r.Horimetro_Execucao|| 0),
-    data:     parseDate(String(r[COL.data] || r.Data_Execucao || '')),
-    status:   String(r[COL.status]   || r.Status_Sistema   || ''),
+    ordem:      String(r[COL.ordem]      || r.ORDEM            || ''),
+    equip:      String(r[COL.equip]      || r.equipamento      || ''),
+    frota:      String(r[COL.frota]      || r.frota            || ''),
+    simul:      String(r[COL.simul]      || r.codigo_simulador || ''),
+    textoSap:   String(r[COL.textoSap]   || r.Texto_Os_Sap     || ''),
+    tipo:       String(r[COL.textoAbv]   || r.Texto_Abv        || ''),
+    hor:        Number(r[COL.horimetro]  || r.Horimetro_Execucao|| 0),
+    data:       parseDate(String(r[COL.data] || r.Data_Execucao || '')),
+    status:     String(r[COL.status]     || r.Status_Sistema   || ''),
+    supervisor: String(r[COL.supervisor] || r.supervisor       || ''),
+    frente:     String(r[COL.frente]     || r.frente           || ''),
+    rf:         String(r[COL.rf]         || r.rf               || ''),
+    tecnico:    String(r[COL.tecnico]    || r.tecnico          || ''),
   };
 }
-
+  
 function groupByEquip(rows) {
   const map = {};
   rows.forEach(r => { if (!map[r.equip]) map[r.equip]=[]; map[r.equip].push(r); });
