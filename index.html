@@ -990,7 +990,7 @@ body {
 }
 .export-btn:hover { color: var(--text); border-color: var(--border2); }
 .export-dropdown {
-  display: none; position: fixed; top: 0; left: 0;
+  display: none; position: absolute; top: calc(100% + 6px); right: 0;
   background: var(--paper); border: 1px solid var(--border); border-radius: 10px;
   box-shadow: 0 8px 32px rgba(0,0,0,.15); z-index: 9300; min-width: 200px; overflow: hidden;
 }
@@ -1160,7 +1160,25 @@ body {
     <span id="clock"></span>
     <button class="btn-sm" onclick="openOverview()" title="Overview Geral" style="display:flex;align-items:center;gap:5px;">📊 Overview</button>
     <button class="btn-sm" onclick="openCompare()" title="Comparar Equipamentos" style="display:flex;align-items:center;gap:5px;">⚖️ Comparar</button>
-    <button class="btn-sm" onclick="loadData()">↻ Atualizar</button>
+    <div class="export-dropdown-wrap" id="header-export-wrap">
+      <button class="btn-sm" onclick="toggleExportDropdown(event)" style="display:flex;align-items:center;gap:5px;">↓ Exportar <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
+      <div class="export-dropdown" id="export-dropdown">
+        <div class="export-option" onclick="exportCSV();closeExportDropdown()">
+          <span class="export-option-icon">📄</span>
+          <div class="export-option-info">
+            <div class="export-option-label">CSV</div>
+            <div class="export-option-sub">Planilha compatível com Excel</div>
+          </div>
+        </div>
+        <div class="export-option" onclick="exportPrint();closeExportDropdown()">
+          <span class="export-option-icon">🖨️</span>
+          <div class="export-option-info">
+            <div class="export-option-label">PDF / Imprimir</div>
+            <div class="export-option-sub">Relatório para impressão</div>
+          </div>
+        </div>
+      </div>
+    </div>
     <button class="theme-btn" onclick="toggleTheme()" title="Tema claro/escuro">
       <div class="theme-knob" id="theme-knob">🌙</div>
     </button>
@@ -1631,28 +1649,6 @@ function renderMain() {
         <p>Histórico completo de grandes manutenções · ${src.length} registro${src.length!==1?'s':''}</p>
       </div>
       <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <div class="export-dropdown-wrap">
-          <button class="export-btn" onclick="toggleExportDropdown(event)">
-            ↓ Exportar
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          <div class="export-dropdown" id="export-dropdown">
-            <div class="export-option" onclick="exportCSV();closeExportDropdown()">
-              <span class="export-option-icon">📄</span>
-              <div class="export-option-info">
-                <div class="export-option-label">CSV</div>
-                <div class="export-option-sub">Planilha compatível com Excel</div>
-              </div>
-            </div>
-            <div class="export-option" onclick="exportPrint();closeExportDropdown()">
-              <span class="export-option-icon">🖨️</span>
-              <div class="export-option-info">
-                <div class="export-option-label">PDF / Imprimir</div>
-                <div class="export-option-sub">Relatório para impressão</div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -2381,18 +2377,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // ══════════════════════════════════════
 function toggleExportDropdown(e) {
   e.stopPropagation();
-  const dd  = document.getElementById('export-dropdown');
-  const btn = e.currentTarget;
-  if (!dd) return;
-  if (dd.classList.contains('open')) {
-    dd.classList.remove('open');
-    return;
-  }
-  // Posiciona via fixed com base no botão
-  const rect = btn.getBoundingClientRect();
-  dd.style.top  = (rect.bottom + 6) + 'px';
-  dd.style.left = Math.max(4, rect.right - 200) + 'px';
-  dd.classList.add('open');
+  const dd = document.getElementById('export-dropdown');
+  if (dd) dd.classList.toggle('open');
 }
 function closeExportDropdown() {
   const dd = document.getElementById('export-dropdown');
@@ -2514,7 +2500,6 @@ function exportPrint() {
 
     ${nuncaRealizadas.length > 0 ? `
     <h2>🚫 GMs Nunca Realizadas (${nuncaRealizadas.length})</h2>
-    <div style="margin-bottom:14px">${nuncaRealizadas.map(gm => `<span class="never-badge">${gm}</span>`).join('')}</div>
     <table><thead><tr><th>Tipo de GM</th><th>Situação</th></tr></thead><tbody>${nuncaRows}</tbody></table>` : ''}
 
     ${atrasadasRows ? `
