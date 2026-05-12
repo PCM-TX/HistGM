@@ -3367,7 +3367,7 @@ ${dataCtx}`;
     // Mantém histórico dos últimos 10 turnos
     const messages = aiChatHistory.slice(-10);
 
-    const response = await fetch('https://gateway.ai.cloudflare.com/v1/740c8b3f575c85d31fac18970cc5b5bb/hist-gm/anthropic/v1/messages', {
+    const response = await fetch('https://histgm.gustavoxavier2500.workers.dev/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
