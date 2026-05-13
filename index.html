@@ -2242,8 +2242,8 @@ function openForgottenModal() {
   if (nuncaRealizadas.length > 0) {
     nuncaHtml = `<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
       <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;">🚫 GMs nunca realizadas neste equipamento (${nuncaRealizadas.length})</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;">
-        ${nuncaRealizadas.map(gm => `<span style="background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent-br);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:600;">${gm}</span>`).join('')}
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        ${nuncaRealizadas.map((gm, i) => `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--accent-bg);border:1px solid var(--accent-br);border-radius:8px;border-left:3px solid var(--accent);"><span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--accent);opacity:.5;min-width:18px;">${i+1}</span><span style="font-size:13px;font-weight:600;color:var(--accent);flex:1;">${gm}</span><span style="font-size:10px;font-weight:600;color:var(--accent);opacity:.65;background:var(--paper);border:1px solid var(--accent-br);border-radius:20px;padding:2px 8px;white-space:nowrap;">Nunca realizada</span></div>`).join('')}
       </div>
     </div>`;
   }
