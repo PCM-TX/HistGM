@@ -1328,21 +1328,88 @@ let GM_POSSIVEIS = []; // GMs únicas extraídas da base principal
 
 // GMs possíveis por frota para Colheita (baseado na tabela de manutenções)
 const GM_POSSIVEIS_COLHEITA = {
-  'HVP': ['ACOPLAMENTO DA BOMBA HIDROSTATICA'],
-  'HVK': ['AR CONDICIONADO','ASSENTO','BOMBA HIDRAULICA','CHASSIS E PÉ DO BOOM + BRAÇO','CHICOTE ELETRICO','CILINDRO ELEVAÇÃO','CILINDRO LANÇA','COMANDO MAQ BASE','LIMPEZA TANQUE DIESEL','MANGUEIRIA JOY STICK','MATERIAL RODANTE - GIRO','MATERIAL RODANTE - TROCA','MOTOR DE GIRO','MOTOR DIESEL','PONTEIRA','REDUTOR DE GIRO','REDUTOR E MOTOR DE TRAÇÃO','REFORMA DE CABEÇOTE','ROLAMENTO CENTRAL','SWIVEL'],
-  'FWJ': ['AR CONDICIONADO','ASSENTO','BRAÇO','CAIXA DE TRANSFERENCIA','CHICOTE ELETRICO (PRINCIPAL)','EMBUCHAMENTO GARRA','GRADE CAIXA CARGA','LIMPEZA TANQUE DIESEL','MANUT. DE BOGIE PIT STOP','MANUT. DE EIXO DIANTEIRO PIT STOP','TORRE','TRAVA CHASSI','UNIÃO INTERMEDIÁRIA'],
-  'FWK': ['AR CONDICIONADO','ASSENTO','BRAÇO','CAIXA DE TRANSFERÊNCIA','CHICOTE ELETRICO (PRINCIPAL)','COMANDO HIDRÁULICO','EMBUCHAMENTO BRAÇO E LANÇA','EMBUCHAMENTO GARRA','EMBUCHAMENTO TORRE','FREIO DIANTEIRO','GRADE CAIXA CARGA','LANÇA','LIMPEZA TANQUE DIESEL','MANUT. DE BOGIE PIT STOP','MOTOR DIESEL','TORRE'],
+  'FWJ': [
+    'AR CONDICIONADO',
+    'ASSENTO',
+    'BRAÇO',
+    'CAIXA DE TRANSFERENCIA',
+    'CHICOTE ELETRICO (PRINCIPAL)',
+    'EMBUCHAMENTO GARRA',
+    'GRADE CAIXA CARGA',
+    'LIMPEZA TANQUE DIESEL',
+    'MANUT. DE BOGIE PIT STOP',
+    'MANUT. DE EIXO DIANTEIRO PIT STOP',
+    'TORRE',
+    'TRAVA CHASSI',
+    'UNIÃO INTERMEDIÁRIA',
+  ],
+  'FWK': [
+    'AR CONDICIONADO',
+    'ASSENTO',
+    'BRAÇO',
+    'CAIXA DE TRANSFERÊNCIA',
+    'CHICOTE ELETRICO (PRINCIPAL)',
+    'COMANDO HIDRÁULICO',
+    'EMBUCHAMENTO BRAÇO E LANÇA',
+    'EMBUCHAMENTO GARRA',
+    'EMBUCHAMENTO TORRE',
+    'FREIO DIANTEIRO',
+    'GRADE CAIXA CARGA',
+    'LANÇA',
+    'LIMPEZA TANQUE DIESEL',
+    'MANUT. DE BOGIE PIT STOP',
+    'MOTOR DIESEL',
+    'TORRE',
+  ],
+  'HVK': [
+    'AR CONDICIONADO',
+    'ASSENTO',
+    'BOMBA HIDRAULICA',
+    'CHASSIS E PÉ DO BOOM + BRAÇO',
+    'CHICOTE ELETRICO',
+    'CILINDRO ELEVAÇÃO',
+    'CILINDRO LANÇA',
+    'COMANDO MAQ BASE',
+    'LIMPEZA TANQUE DIESEL',
+    'MANGUEIRIA JOY STICK',
+    'MATERIAL RODANTE - GIRO',
+    'MATERIAL RODANTE - TROCA',
+    'MOTOR DE GIRO',
+    'MOTOR DIESEL',
+    'PONTEIRA',
+    'REDUTOR DE GIRO',
+    'REDUTOR E MOTOR DE TRAÇÃO',
+    'REFORMA DE CABEÇOTE',
+    'ROLAMENTO CENTRAL',
+    'SWIVEL',
+  ],
+  'HVP': [
+    'ACOPLAMENTO DA BOMBA HIDROSTATICA',
+  ],
 };
 
 // Retorna as GMs possíveis para um equipamento baseado na frota
+function getFrotaTipo(eq) {
+  // 1. Tenta usar o campo frota do JSON (ex: "F-HVK-0001" ou "HVK")
+  const frotaJSON = eq.items[0]?.frota || '';
+  // Extrai só as letras do tipo (HVK, FWJ, FWK, HVP) de qualquer formato
+  const m1 = frotaJSON.match(/([A-Z]{2,})/g);
+  if (m1) {
+    for (const t of m1) {
+      if (GM_POSSIVEIS_COLHEITA[t]) return t;
+    }
+  }
+  // 2. Fallback: extrai do nome do equipamento (ex: F-HVK-0001)
+  const m2 = eq.name.match(/[A-Z]-([A-Z]+)-/);
+  const tipo = m2 ? m2[1] : null;
+  if (tipo && GM_POSSIVEIS_COLHEITA[tipo]) return tipo;
+  return null;
+}
+
 function getGMPossiveisPorEquip(eq) {
   if (!eq) return GM_POSSIVEIS;
-  // Extrai o tipo de frota do nome da máquina (ex: F-HVK-0001 → HVK)
-  const m = eq.name.match(/[A-Z]-([A-Z]+)-/);
-  const frota = m ? m[1] : null;
-  if (frota && GM_POSSIVEIS_COLHEITA[frota]) {
-    return GM_POSSIVEIS_COLHEITA[frota];
-  }
+  const tipo = getFrotaTipo(eq);
+  if (tipo) return GM_POSSIVEIS_COLHEITA[tipo];
   return GM_POSSIVEIS;
 }
 
@@ -1459,27 +1526,25 @@ async function loadData() {
     document.getElementById('sync-label').textContent = 'Demo';
   }
   ALL_FLAT   = rows.map(normalize);
-  GM_POSSIVEIS = [...new Set(ALL_FLAT.map(r => r.tipo).filter(Boolean))].sort();
+  // GMs possíveis vêm da tabela Excel (GM_POSSIVEIS_COLHEITA), não do JSON
+  GM_POSSIVEIS = [...new Set(Object.values(GM_POSSIVEIS_COLHEITA).flat())].sort();
   EQUIPMENTS = groupByEquip(ALL_FLAT);
   renderSidebar();
   selectEquip(0);
 }
 
 function getFrente(eq) {
-  // Tenta pegar frente de qualquer item do equipamento (não apenas o primeiro)
+  // Usa APENAS o campo frente vindo do JSON (ex: M01, M02, M03...)
   const f = eq.items.find(r => r.frente && r.frente !== '—' && r.frente.trim())?.frente;
-  if (f) return f.trim();
-  // Fallback: prefixo do nome (ex: F-FWX de F-FWX-0001)
-  const m = eq.name.match(/^([A-Z]-[A-Z]+)/);
-  return m ? m[1] : eq.name.substring(0, 5);
+  return f ? f.trim() : '';
 }
 
 function renderSidebar() {
   const sb = document.getElementById('sidebar');
   if (!document.getElementById('sidebar-filter')) {
-    // Coletar frentes únicas
+    // Coletar frentes únicas — ignora vazias (máquinas sem frente no JSON)
     const frentesSet = new Set();
-    EQUIPMENTS.forEach(eq => frentesSet.add(getFrente(eq)));
+    EQUIPMENTS.forEach(eq => { const f = getFrente(eq); if (f) frentesSet.add(f); });
     const frentes = [...frentesSet].sort();
     const frenteOpts = frentes.map(f => `<option value="${f}">${f}</option>`).join('');
 
@@ -1981,7 +2046,7 @@ function renderGMChart() {
   const contagemTotal = {};
   src.forEach(r => { contagemTotal[r.tipo] = (contagemTotal[r.tipo]||0)+1; });
 
-  const todasGMs = [...new Set([...GM_POSSIVEIS, ...Object.keys(contagemTotal)])];
+  const todasGMs = [...new Set([...getGMPossiveisPorEquip(eq), ...Object.keys(contagemTotal)])];
 
   let dados = todasGMs.map(gm => ({ gm, count: contagem[gm]||0, total: contagemTotal[gm]||0 }));
 
@@ -2149,7 +2214,7 @@ function openChartModal() {
   filt.forEach(r => { contagem[r.tipo] = (contagem[r.tipo]||0)+1; });
   const contagemTotal = {};
   src.forEach(r => { contagemTotal[r.tipo] = (contagemTotal[r.tipo]||0)+1; });
-  const todasGMs = [...new Set([...GM_POSSIVEIS, ...Object.keys(contagemTotal)])];
+  const todasGMs = [...new Set([...getGMPossiveisPorEquip(eq), ...Object.keys(contagemTotal)])];
   let dados = todasGMs.map(gm => ({ gm, count: contagem[gm]||0, total: contagemTotal[gm]||0 }));
   if (chartView === 'executadas') dados = dados.filter(d => d.total > 0);
   if (chartView === 'nao')        dados = dados.filter(d => d.total === 0);
@@ -2559,7 +2624,7 @@ function exportPrint() {
 
   // GMs nunca realizadas
   const tiposRealizados = new Set(src.filter(r => !isAberto(r)).map(r => r.tipo));
-  const nuncaRealizadas = GM_POSSIVEIS.filter(gm => !tiposRealizados.has(gm));
+  const nuncaRealizadas = getGMPossiveisPorEquip(eq).filter(gm => !tiposRealizados.has(gm));
 
   // MTBF (tempo médio entre falhas/manutenções pelo horímetro)
   const sortedH = [...src.filter(r => !isAberto(r))].sort((a,b) => a.hor - b.hor);
